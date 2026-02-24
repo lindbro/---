@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ООО «Завод «Стройминерал» — Дашборд производственных линий</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: #0a0a0f;
+            color: #ffffff;
+        }
+
+        .card {
+            background-color: #1a1a24;
+            border: 1px solid #2a2a35;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: #E31E24;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(227, 30, 36, 0.1);
+        }
+
+        .kpi-card {
+            background: linear-gradient(135deg, #1a1a24 0%, #252530 100%);
+            border-left: 4px solid #E31E24;
+        }
+
+        .kpi-value {
+            background: linear-gradient(135deg, #E31E24 0%, #ff4757 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status-running {
+            animation: pulse-green 2s infinite;
+        }
+
+        .status-stopped {
+            animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(46, 125, 50, 0); }
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(227, 30, 36, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(227, 30, 36, 0); }
+        }
+
+        .nav-item {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+
+        .nav-item.active {
+            color: #E31E24;
+            border-bottom-color: #E31E24;
+        }
+
+        .nav-item:hover {
+            color: #E31E24;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .table-row:hover {
+            background-color: #252530;
+        }
+
+        .alert-item {
+            animation: slideDown 0.5s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .count-up {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .progress-bar {
+            transition: width 1s ease;
+        }
+
+        .heatmap-cell {
+            transition: all 0.3s ease;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.1);
+            z-index: 10;
+            box-shadow: 0 0 20px rgba(255,255,255,0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #E31E24 0%, #c41e24 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(227, 30, 36, 0.4);
+        }
+
+        .filter-select {
+            background-color: #252530;
+            border: 1px solid #3a3a45;
+            color: #ffffff;
+            transition: all 0.3s ease;
+        }
+
+        .filter-select:focus {
+            border-color: #E31E24;
+            outline: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tooltip-custom {
+            background-color: #252530;
+            border: 1px solid #E31E24;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+    </style>
+<base target="_blank">
+</head>
+<body class="min-h-screen">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/95 backdrop-blur-md border-b border-[#2a2a35]">
+        <div class="max-w-[1920px] mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-[#E31E24] to-[#ff4757] rounded-lg flex items-center justify-center">
+                        <i class="fas fa-industry text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-white">ООО «Завод «Стройминерал»</h1>
+                        <p class="text-xs text-gray-400">Корпорация ТЕХНОНИКОЛЬ | Пилотный дашборд</p>
+                    </div>
+                </div>
+
+                <nav class="flex items-center gap-8">
+                    <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-item active px-4 py-2 text-sm font-medium">
+                        <i class="fas fa-chart-line mr-2"></i>Дашборд
+                    </button>
+                    <button onclick="switchView('analytics')" id="nav-analytics" class="nav-item px-4 py-2 text-sm font-medium">
+                        <i class="fas fa-chart-bar mr-2"></i>Аналитика
+                    </button>
+                    <button onclick="switchView('realtime')" id="nav-realtime" class="nav-item px-4 py-2 text-sm font-medium">
+                        <i class="fas fa-broadcast-tower mr-2"></i>Реальное время
+                    </button>
+                    <button onclick="switchView('value')" id="nav-value" class="nav-item px-4 py-2 text-sm font-medium">
+                        <i class="fas fa-lightbulb mr-2"></i>Ценность
+                    </button>
+                </nav>
+
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <div id="current-time" class="text-lg font-bold text-white">14:32:45</div>
+                        <div id="current-date" class="text-xs text-gray-400">24.02.2026</div>
+                    </div>
+                    <button onclick="refreshData()" class="p-2 rounded-lg bg-[#252530] hover:bg-[#2a2a35] transition-colors">
+                        <i id="refresh-icon" class="fas fa-sync-alt text-gray-400"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-24 pb-8 px-6 max-w-[1920px] mx-auto">
+
+        <!-- Dashboard View -->
+        <div id="view-dashboard" class="view-section fade-in">
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="card kpi-card p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-gray-400 text-sm">Средняя эффективность</span>
+                        <i class="fas fa-percentage text-[#E31E24]"></i>
+                    </div>
+                    <div class="text-3xl font-bold kpi-value count-up" data-target="87.3">87.3%</div>
+                    <div class="flex items-center mt-2 text-sm">
+                        <span class="text-green-500 flex items-center">
+                            <i class="fas fa-arrow-up mr-1"></i>2.1%
+                        </span>
+                        <span class="text-gray-500 ml-2">vs прошлая неделя</span>
+                    </div>
+                </div>
+
+                <div class="card kpi-card p-6" style="border-left-color: #3b82f6;">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-gray-400 text-sm">Выработка (неделя)</span>
+                        <i class="fas fa-weight-hanging text-[#3b82f6]"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-[#3b82f6] count-up" data-target="2847">2,847 т</div>
+                    <div class="flex items-center mt-2 text-sm">
+                        <span class="text-green-500 flex items-center">
+                            <i class="fas fa-arrow-up mr-1"></i>5.3%
+                        </span>
+                        <span class="text-gray-500 ml-2">vs прошлая неделя</span>
+                    </div>
+                </div>
+
+                <div class="card kpi-card p-6" style="border-left-color: #FF9800;">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-gray-400 text-sm">Простои (неделя)</span>
+                        <i class="fas fa-clock text-[#FF9800]"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-[#FF9800] count-up" data-target="68">68 ч</div>
+                    <div class="flex items-center mt-2 text-sm">
+                        <span class="text-red-500 flex items-center">
+                            <i class="fas fa-arrow-up mr-1"></i>3.2%
+                        </span>
+                        <span class="text-gray-500 ml-2">требует внимания</span>
+                    </div>
+                </div>
+
+                <div class="card kpi-card p-6" style="border-left-color: #2E7D32;">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-gray-400 text-sm">OEE (средний)</span>
+                        <i class="fas fa-tachometer-alt text-[#2E7D32]"></i>
+                    </div>
+                    <div class="text-3xl font-bold text-[#2E7D32] count-up" data-target="82.5">82.5%</div>
+                    <div class="flex items-center mt-2 text-sm">
+                        <span class="text-green-500 flex items-center">
+                            <i class="fas fa-arrow-up mr-1"></i>1.8%
+                        </span>
+                        <span class="text-gray-500 ml-2">цель: 85%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-chart-line text-[#E31E24] mr-2"></i>
+                        Эффективность по линиям (7 дней)
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="efficiencyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-chart-scatter text-[#3b82f6] mr-2"></i>
+                        Выработка vs Время простоя
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="scatterChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-exclamation-triangle text-[#FF9800] mr-2"></i>
+                        Причины простоев (Парето)
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="paretoChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-th text-[#2E7D32] mr-2"></i>
+                        Эффективность: Линии × Смены
+                    </h3>
+                    <div id="heatmapContainer" class="h-[300px] flex items-center justify-center">
+                        <!-- Heatmap will be rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Status Table -->
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold flex items-center">
+                        <i class="fas fa-table text-[#E31E24] mr-2"></i>
+                        Текущее состояние линий
+                    </h3>
+                    <button onclick="simulateIncident()" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
+                        <i class="fas fa-bolt mr-2"></i>Симулировать инцидент
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-[#2a2a35]">
+                                <th class="text-left py-3 px-4 text-gray-400 font-medium">Линия</th>
+                                <th class="text-left py-3 px-4 text-gray-400 font-medium">Статус</th>
+                                <th class="text-left py-3 px-4 text-gray-400 font-medium">Текущая смена</th>
+                                <th class="text-right py-3 px-4 text-gray-400 font-medium">Выработка (т)</th>
+                                <th class="text-right py-3 px-4 text-gray-400 font-medium">Простой (мин)</th>
+                                <th class="text-right py-3 px-4 text-gray-400 font-medium">Эффективность</th>
+                                <th class="text-center py-3 px-4 text-gray-400 font-medium">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="statusTableBody">
+                            <!-- Generated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics View -->
+        <div id="view-analytics" class="view-section hidden">
+            <!-- Filters -->
+            <div class="card p-4 mb-6">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-400 text-sm">Период:</span>
+                        <input type="date" id="dateFrom" class="filter-select px-3 py-2 rounded-lg text-sm" value="2024-11-01">
+                        <span class="text-gray-500">—</span>
+                        <input type="date" id="dateTo" class="filter-select px-3 py-2 rounded-lg text-sm" value="2024-12-15">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-400 text-sm">Линии:</span>
+                        <select id="lineFilter" class="filter-select px-3 py-2 rounded-lg text-sm" multiple>
+                            <option value="all" selected>Все линии</option>
+                            <option value="gran1">Гранулирование №1</option>
+                            <option value="gran2">Гранулирование №2</option>
+                            <option value="paint1">Окрашивание №1</option>
+                            <option value="dry1">Сушка №1</option>
+                        </select>
+                    </div>
+                    <button onclick="applyFilters()" class="btn-primary px-6 py-2 rounded-lg text-sm font-medium">
+                        <i class="fas fa-filter mr-2"></i>Применить
+                    </button>
+                </div>
+            </div>
+
+            <!-- Analytics Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">OEE Тренд (3 месяца)</h3>
+                    <div class="chart-container">
+                        <canvas id="oeeTrendChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">Сравнение линий</h3>
+                    <div class="chart-container">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">Распределение выработки</h3>
+                    <div class="chart-container">
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">Корреляция: Эффективность vs Простои</h3>
+                    <div class="chart-container">
+                        <canvas id="correlationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incidents Table -->
+            <div class="card p-6">
+                <h3 class="text-lg font-semibold mb-4">Журнал инцидентов</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-[#2a2a35]">
+                                <th class="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer" onclick="sortTable('date')">
+                                    Дата <i class="fas fa-sort ml-1"></i>
+                                </th>
+                                <th class="text-left py-3 px-4 text-gray-400 font-medium">Линия</th>
+                                <th class="text-left py-3 px-4 text-gray-400 font-medium">Смена</th>
+                                <th class="text-left py-3 px-4 text-gray-400 font-medium">Причина</th>
+                                <th class="text-right py-3 px-4 text-gray-400 font-medium cursor-pointer" onclick="sortTable('duration')">
+                                    Длительность <i class="fas fa-sort ml-1"></i>
+                                </th>
+                                <th class="text-right py-3 px-4 text-gray-400 font-medium">Потери (т)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incidentsTableBody">
+                            <!-- Generated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex items-center justify-between mt-4">
+                    <span class="text-sm text-gray-400">Показано 10 из 156 записей</span>
+                    <div class="flex gap-2">
+                        <button class="px-3 py-1 rounded bg-[#252530] text-gray-400 hover:text-white transition-colors">←</button>
+                        <button class="px-3 py-1 rounded bg-[#E31E24] text-white">1</button>
+                        <button class="px-3 py-1 rounded bg-[#252530] text-gray-400 hover:text-white transition-colors">2</button>
+                        <button class="px-3 py-1 rounded bg-[#252530] text-gray-400 hover:text-white transition-colors">3</button>
+                        <button class="px-3 py-1 rounded bg-[#252530] text-gray-400 hover:text-white transition-colors">→</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Realtime View -->
+        <div id="view-realtime" class="view-section hidden">
+            <!-- Line Status Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div id="rt-gran1" class="card p-6 border-2 border-green-600">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold">Гранулирование №1</h3>
+                        <div class="w-4 h-4 rounded-full bg-green-500 status-running"></div>
+                    </div>
+                    <div class="text-sm text-gray-400 mb-2">Смена 2 (14:00-22:00)</div>
+                    <div class="text-3xl font-bold text-green-500 mb-2">РАБОТАЕТ</div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Выработка:</span>
+                            <span class="font-medium">11.2 т/ч</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Простой:</span>
+                            <span class="font-medium text-green-500">0 мин</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Эффективность:</span>
+                            <span class="font-medium">93%</span>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="text-xs text-gray-500 mb-1">Прогресс смены</div>
+                        <div class="w-full bg-[#252530] rounded-full h-2">
+                            <div class="bg-green-500 h-2 rounded-full progress-bar" style="width: 65%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1 text-right">5ч 12мин / 8ч</div>
+                    </div>
+                </div>
+
+                <div id="rt-gran2" class="card p-6 border-2 border-green-600">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold">Гранулирование №2</h3>
+                        <div class="w-4 h-4 rounded-full bg-green-500 status-running"></div>
+                    </div>
+                    <div class="text-sm text-gray-400 mb-2">Смена 2 (14:00-22:00)</div>
+                    <div class="text-3xl font-bold text-green-500 mb-2">РАБОТАЕТ</div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Выработка:</span>
+                            <span class="font-medium">10.8 т/ч</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Простой:</span>
+                            <span class="font-medium text-green-500">15 мин</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Эффективность:</span>
+                            <span class="font-medium">89%</span>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="text-xs text-gray-500 mb-1">Прогресс смены</div>
+                        <div class="w-full bg-[#252530] rounded-full h-2">
+                            <div class="bg-green-500 h-2 rounded-full progress-bar" style="width: 65%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1 text-right">5ч 12мин / 8ч</div>
+                    </div>
+                </div>
+
+                <div id="rt-paint1" class="card p-6 border-2 border-yellow-600">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold">Окрашивание №1</h3>
+                        <div class="w-4 h-4 rounded-full bg-yellow-500 status-running"></div>
+                    </div>
+                    <div class="text-sm text-gray-400 mb-2">Смена 2 (14:00-22:00)</div>
+                    <div class="text-3xl font-bold text-yellow-500 mb-2">НАСТРОЙКА</div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Выработка:</span>
+                            <span class="font-medium">0 т/ч</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Простой:</span>
+                            <span class="font-medium text-yellow-500">25 мин</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Причина:</span>
+                            <span class="font-medium">Смена цвета</span>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="text-xs text-gray-500 mb-1">Прогресс смены</div>
+                        <div class="w-full bg-[#252530] rounded-full h-2">
+                            <div class="bg-yellow-500 h-2 rounded-full progress-bar" style="width: 65%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1 text-right">5ч 12мин / 8ч</div>
+                    </div>
+                </div>
+
+                <div id="rt-dry1" class="card p-6 border-2 border-red-600">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold">Сушка №1</h3>
+                        <div class="w-4 h-4 rounded-full bg-red-500 status-stopped"></div>
+                    </div>
+                    <div class="text-sm text-gray-400 mb-2">Смена 2 (14:00-22:00)</div>
+                    <div class="text-3xl font-bold text-red-500 mb-2">ОСТАНОВЛЕНА</div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Выработка:</span>
+                            <span class="font-medium">0 т/ч</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Простой:</span>
+                            <span class="font-medium text-red-500">42 мин</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Причина:</span>
+                            <span class="font-medium">Аварийный ремонт</span>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="text-xs text-gray-500 mb-1">Прогресс смены</div>
+                        <div class="w-full bg-[#252530] rounded-full h-2">
+                            <div class="bg-red-500 h-2 rounded-full progress-bar" style="width: 65%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1 text-right">5ч 12мин / 8ч</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hourly Production Chart -->
+            <div class="card p-6 mb-6">
+                <h3 class="text-lg font-semibold mb-4">Выработка по часам (текущая смена)</h3>
+                <div class="chart-container">
+                    <canvas id="hourlyChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Alerts Panel -->
+            <div class="card p-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-bell text-[#E31E24] mr-2"></i>
+                    Активные алерты
+                </h3>
+                <div id="alertsContainer" class="space-y-3">
+                    <div class="alert-item flex items-center gap-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                        <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                            <i class="fas fa-exclamation text-red-500"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-red-400">Критический простой</div>
+                            <div class="text-sm text-gray-400">Линия сушки №1 — Аварийный ремонт (42 мин)</div>
+                        </div>
+                        <div class="text-sm text-gray-500">14:32</div>
+                    </div>
+                    <div class="alert-item flex items-center gap-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                        <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                            <i class="fas fa-wrench text-yellow-500"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-yellow-400">Плановая настройка</div>
+                            <div class="text-sm text-gray-400">Линия окрашивания №1 — Смена цвета (25 мин)</div>
+                        </div>
+                        <div class="text-sm text-gray-500">14:15</div>
+                    </div>
+                    <div class="alert-item flex items-center gap-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                        <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                            <i class="fas fa-info text-blue-500"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-blue-400">Информация</div>
+                            <div class="text-sm text-gray-400">Гранулирование №2 — Плановое ТО через 2 часа</div>
+                        </div>
+                        <div class="text-sm text-gray-500">13:45</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Value Proposition View -->
+        <div id="view-value" class="view-section hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Before/After Comparison -->
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-6">До и После внедрения</h3>
+                    <div class="space-y-6">
+                        <div class="border-l-4 border-red-500 pl-4">
+                            <h4 class="font-semibold text-red-400 mb-2">ДО: Excel-учёт</h4>
+                            <ul class="space-y-2 text-sm text-gray-400">
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-times text-red-500"></i>
+                                    Сбор данных: 2-3 дня задержки
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-times text-red-500"></i>
+                                    10+ часов в неделю на консолидацию
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-times text-red-500"></i>
+                                    Ошибки ручного ввода
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-times text-red-500"></i>
+                                    Нет единой картины
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4">
+                            <h4 class="font-semibold text-green-400 mb-2">ПОСЛЕ: Дашборд</h4>
+                            <ul class="space-y-2 text-sm text-gray-400">
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-check text-green-500"></i>
+                                    Данные в реальном времени
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-check text-green-500"></i>
+                                    Автоматическая агрегация
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-check text-green-500"></i>
+                                    Алерты при отклонениях
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-check text-green-500"></i>
+                                    Единое окно аналитики
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROI Calculator -->
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-6">Калькулятор эффекта</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm text-gray-400">Количество линий</label>
+                            <input type="range" id="calcLines" min="1" max="10" value="4" 
+                                   class="w-full mt-2 accent-[#E31E24]" oninput="updateCalculator()">
+                            <div class="flex justify-between text-sm mt-1">
+                                <span class="text-gray-500">1</span>
+                                <span id="calcLinesValue" class="text-[#E31E24] font-bold">4</span>
+                                <span class="text-gray-500">10</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400">Средний простой (час/неделю)</label>
+                            <input type="range" id="calcDowntime" min="10" max="100" value="35" 
+                                   class="w-full mt-2 accent-[#E31E24]" oninput="updateCalculator()">
+                            <div class="flex justify-between text-sm mt-1">
+                                <span class="text-gray-500">10ч</span>
+                                <span id="calcDowntimeValue" class="text-[#E31E24] font-bold">35ч</span>
+                                <span class="text-gray-500">100ч</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400">Стоимость часа простоя (тыс. ₽)</label>
+                            <input type="range" id="calcCost" min="50" max="500" value="150" 
+                                   class="w-full mt-2 accent-[#E31E24]" oninput="updateCalculator()">
+                            <div class="flex justify-between text-sm mt-1">
+                                <span class="text-gray-500">50к</span>
+                                <span id="calcCostValue" class="text-[#E31E24] font-bold">150к</span>
+                                <span class="text-gray-500">500к</span>
+                            </div>
+                        </div>
+                        <div class="mt-6 p-4 bg-[#252530] rounded-lg">
+                            <div class="text-sm text-gray-400 mb-2">Прогнозируемая экономия в год:</div>
+                            <div id="calcResult" class="text-3xl font-bold text-green-500">13.6 млн ₽</div>
+                            <div class="text-xs text-gray-500 mt-1">*При снижении простоев на 15-20%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Implementation Roadmap -->
+            <div class="card p-6">
+                <h3 class="text-lg font-semibold mb-6">План внедрения</h3>
+                <div class="relative">
+                    <div class="absolute left-8 top-0 bottom-0 w-0.5 bg-[#2a2a35]"></div>
+                    <div class="space-y-8">
+                        <div class="flex gap-4">
+                            <div class="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold z-10">1</div>
+                            <div class="flex-1 pt-2">
+                                <h4 class="font-semibold text-blue-400">Неделя 1: Подготовка</h4>
+                                <p class="text-sm text-gray-400 mt-1">Сбор исторических данных (3-6 месяцев), интервью с ключевыми пользователями, определение KPI</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-16 h-16 rounded-full bg-[#E31E24] flex items-center justify-center text-white font-bold z-10">2</div>
+                            <div class="flex-1 pt-2">
+                                <h4 class="font-semibold text-[#E31E24]">Неделя 1-2: Разработка пилота</h4>
+                                <p class="text-sm text-gray-400 mt-1">Создание дашборда для 1-2 линий, настройка визуализаций, тестирование на моковых данных</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold z-10">3</div>
+                            <div class="flex-1 pt-2">
+                                <h4 class="font-semibold text-yellow-400">Неделя 2: Демонстрация</h4>
+                                <p class="text-sm text-gray-400 mt-1">Презентация результатов руководству, сбор обратной связи, корректировка дашборда</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-white font-bold z-10">4</div>
+                            <div class="flex-1 pt-2">
+                                <h4 class="font-semibold text-green-400">Неделя 3+: Масштабирование</h4>
+                                <p class="text-sm text-gray-400 mt-1">Расширение на все линии, настройка автоматического обновления, обучение персонала</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Data Generation
+        const lines = [
+            { id: 'gran1', name: 'Линия гранулирования №1', type: 'granulation', capacity: 12 },
+            { id: 'gran2', name: 'Линия гранулирования №2', type: 'granulation', capacity: 12 },
+            { id: 'paint1', name: 'Линия окрашивания №1', type: 'painting', capacity: 8 },
+            { id: 'dry1', name: 'Линия сушки №1', type: 'drying', capacity: 10 }
+        ];
+
+        const shifts = [
+            { id: 1, name: 'Смена 1', time: '06:00-14:00' },
+            { id: 2, name: 'Смена 2', time: '14:00-22:00' },
+            { id: 3, name: 'Смена 3', time: '22:00-06:00' }
+        ];
+
+        const downtimeReasons = [
+            'Плановое ТО',
+            'Аварийный ремонт',
+            'Настройка оборудования',
+            'Отсутствие сырья',
+            'Смена цвета',
+            'Электроснабжение',
+            'Прочее'
+        ];
+
+        // Generate 90 days of data
+        function generateData() {
+            const data = [];
+            const startDate = new Date('2024-11-01');
+
+            for (let i = 0; i < 90; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+
+                lines.forEach(line => {
+                    shifts.forEach(shift => {
+                        const plannedTime = 480; // 8 hours in minutes
+                        const baseDowntime = Math.random() * 60;
+                        const seasonalFactor = date.getMonth() >= 11 || date.getMonth() <= 1 ? 1.3 : 1;
+                        const downtime = Math.min(baseDowntime * seasonalFactor, 180);
+                        const workTime = plannedTime - downtime;
+                        const efficiency = (workTime / plannedTime) * 100;
+
+                        const baseOutput = line.capacity;
+                        const actualOutput = baseOutput * (workTime / plannedTime) * (0.9 + Math.random() * 0.15);
+
+                        const weights = [0.25, 0.15, 0.20, 0.10, 0.15, 0.05, 0.10];
+                        const reason = downtimeReasons[weightedRandom(weights)];
+
+                        data.push({
+                            date: date.toISOString().split('T')[0],
+                            lineId: line.id,
+                            lineName: line.name,
+                            shiftId: shift.id,
+                            shiftName: shift.name,
+                            plannedTime,
+                            workTime,
+                            downtime,
+                            output: actualOutput,
+                            efficiency,
+                            reason
+                        });
+                    });
+                });
+            }
+            return data;
+        }
+
+        function weightedRandom(weights) {
+            const sum = weights.reduce((a, b) => a + b, 0);
+            let random = Math.random() * sum;
+            for (let i = 0; i < weights.length; i++) {
+                if (random < weights[i]) return i;
+                random -= weights[i];
+            }
+            return weights.length - 1;
+        }
+
+        const productionData = generateData();
+
+        // Charts initialization
+        let charts = {};
+
+        function initCharts() {
+            // Efficiency Chart
+            const efficiencyCtx = document.getElementById('efficiencyChart').getContext('2d');
+            const last7Days = [...new Set(productionData.map(d => d.date))].slice(-7);
+
+            charts.efficiency = new Chart(efficiencyCtx, {
+                type: 'line',
+                data: {
+                    labels: last7Days.map(d => d.slice(5)),
+                    datasets: lines.map((line, idx) => ({
+                        label: line.name.replace('Линия ', ''),
+                        data: last7Days.map(date => {
+                            const dayData = productionData.filter(d => d.date === date && d.lineId === line.id);
+                            return dayData.reduce((sum, d) => sum + d.efficiency, 0) / dayData.length;
+                        }),
+                        borderColor: ['#E31E24', '#3b82f6', '#2E7D32', '#FF9800'][idx],
+                        backgroundColor: ['#E31E24', '#3b82f6', '#2E7D32', '#FF9800'][idx] + '20',
+                        tension: 0.4,
+                        fill: true
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#888' } }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: 70,
+                            max: 100,
+                            grid: { color: '#2a2a35' },
+                            ticks: { color: '#888' }
+                        },
+                        x: {
+                            grid: { color: '#2a2a35' },
+                            ticks: { color: '#888' }
+                        }
+                    }
+                }
+            });
+
+            // Scatter Chart
+            const scatterCtx = document.getElementById('scatterChart').getContext('2d');
+            const scatterData = productionData.slice(-30).map(d => ({
+                x: d.downtime,
+                y: d.output,
+                line: d.lineName
+            }));
+
+            charts.scatter = new Chart(scatterCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: lines.map((line, idx) => ({
+                        label: line.name.replace('Линия ', ''),
+                        data: scatterData.filter(d => d.line === line.name),
+                        backgroundColor: ['#E31E24', '#3b82f6', '#2E7D32', '#FF9800'][idx]
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#888' } }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Простой, мин', color: '#888' },
+                            grid: { color: '#2a2a35' },
+                            ticks: { color: '#888' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Выработка, т', color: '#888' },
+                            grid: { color: '#2a2a35' },
+                            ticks: { color: '#888' }
+                        }
+                    }
+                }
+            });
+
+            // Pareto Chart
+            const paretoCtx = document.getElementById('paretoChart').getContext('2d');
+            const reasonStats = {};
+            productionData.forEach(d => {
+                reasonStats[d.reason] = (reasonStats[d.reason] || 0) + d.downtime;
+            });
+            const sortedReasons = Object.entries(reasonStats).sort((a, b) => b[1] - a[1]);
+
+            charts.pareto = new Chart(paretoCtx, {
+                type: 'bar',
+                data: {
+                    labels: sortedReasons.map(r => r[0]),
+                    datasets: [{
+                        label: 'Минуты простоя',
+                        data: sortedReasons.map(r => r[1]),
+                        backgroundColor: sortedReasons.map((_, i) => 
+                            i < 3 ? '#E31E24' : i < 5 ? '#FF9800' : '#2E7D32'
+                        )
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#2a2a35' },
+                            ticks: { color: '#888' }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: '#888' }
+                        }
+                    }
+                }
+            });
+
+            // OEE Trend Chart (Analytics)
+            const oeeCtx = document.getElementById('oeeTrendChart')?.getContext('2d');
+            if (oeeCtx) {
+                const monthlyData = {};
+                productionData.forEach(d => {
+                    const month = d.date.slice(0, 7);
+                    if (!monthlyData[month]) monthlyData[month] = [];
+                    monthlyData[month].push(d.efficiency);
+                });
+
+                charts.oee = new Chart(oeeCtx, {
+                    type: 'line',
+                    data: {
+                        labels: Object.keys(monthlyData),
+                        datasets: [{
+                            label: 'OEE',
+                            data: Object.values(monthlyData).map(arr => 
+                                arr.reduce((a, b) => a + b, 0) / arr.length
+                            ),
+                            borderColor: '#E31E24',
+                            backgroundColor: '#E31E2420',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#888' } } },
+                        scales: {
+                            y: { grid: { color: '#2a2a35' }, ticks: { color: '#888' } },
+                            x: { grid: { color: '#2a2a35' }, ticks: { color: '#888' } }
+                        }
+                    }
+                });
+            }
+
+            // Hourly Chart (Realtime)
+            const hourlyCtx = document.getElementById('hourlyChart')?.getContext('2d');
+            if (hourlyCtx) {
+                charts.hourly = new Chart(hourlyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'],
+                        datasets: lines.map((line, idx) => ({
+                            label: line.name.replace('Линия ', ''),
+                            data: Array(8).fill(0).map(() => Math.random() * line.capacity),
+                            backgroundColor: ['#E31E24', '#3b82f6', '#2E7D32', '#FF9800'][idx]
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#888' } } },
+                        scales: {
+                            y: { 
+                                title: { display: true, text: 'Тонн/час', color: '#888' },
+                                grid: { color: '#2a2a35' },
+                                ticks: { color: '#888' }
+                            },
+                            x: { grid: { color: '#2a2a35' }, ticks: { color: '#888' } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Render Heatmap
+        function renderHeatmap() {
+            const container = document.getElementById('heatmapContainer');
+            if (!container) return;
+
+            const heatmapData = {};
+            lines.forEach(line => {
+                heatmapData[line.id] = {};
+                shifts.forEach(shift => {
+                    const data = productionData.filter(d => d.lineId === line.id && d.shiftId === shift.id);
+                    const avg = data.reduce((sum, d) => sum + d.efficiency, 0) / data.length;
+                    heatmapData[line.id][shift.id] = avg;
+                });
+            });
+
+            let html = '<div class="grid grid-cols-4 gap-2 w-full">';
+            html += '<div class="text-xs text-gray-500"></div>';
+            shifts.forEach(s => html += `<div class="text-xs text-gray-400 text-center">${s.name}</div>`);
+
+            lines.forEach(line => {
+                html += `<div class="text-xs text-gray-400 flex items-center">${line.name.replace('Линия ', '')}</div>`;
+                shifts.forEach(shift => {
+                    const value = heatmapData[line.id][shift.id];
+                    const color = value > 90 ? '#2E7D32' : value > 80 ? '#4CAF50' : value > 70 ? '#FF9800' : '#E31E24';
+                    html += `
+                        <div class="heatmap-cell h-12 rounded flex items-center justify-center text-sm font-bold cursor-pointer" 
+                             style="background-color: ${color}40; border: 2px solid ${color}; color: ${value > 85 ? '#000' : '#fff'}"
+                             title="${line.name} - ${shift.name}: ${value.toFixed(1)}%">
+                            ${value.toFixed(0)}%
+                        </div>
+                    `;
+                });
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // Render Tables
+        function renderStatusTable() {
+            const tbody = document.getElementById('statusTableBody');
+            if (!tbody) return;
+
+            const today = productionData.filter(d => d.date === '2024-12-15');
+
+            tbody.innerHTML = lines.map(line => {
+                const lineData = today.filter(d => d.lineId === line.id);
+                const totalOutput = lineData.reduce((sum, d) => sum + d.output, 0);
+                const totalDowntime = lineData.reduce((sum, d) => sum + d.downtime, 0);
+                const avgEfficiency = lineData.reduce((sum, d) => sum + d.efficiency, 0) / lineData.length;
+                const isRunning = totalDowntime < 30;
+
+                return `
+                    <tr class="table-row border-b border-[#2a2a35] transition-colors">
+                        <td class="py-3 px-4">${line.name}</td>
+                        <td class="py-3 px-4">
+                            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${isRunning ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">
+                                <span class="w-2 h-2 rounded-full ${isRunning ? 'bg-green-500' : 'bg-red-500'} ${isRunning ? 'status-running' : 'status-stopped'}"></span>
+                                ${isRunning ? 'Работает' : 'Простой'}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-gray-400">Смена 2</td>
+                        <td class="py-3 px-4 text-right">${totalOutput.toFixed(1)}</td>
+                        <td class="py-3 px-4 text-right ${totalDowntime > 30 ? 'text-red-400' : 'text-green-400'}">${totalDowntime.toFixed(0)}</td>
+                        <td class="py-3 px-4 text-right">${avgEfficiency.toFixed(1)}%</td>
+                        <td class="py-3 px-4 text-center">
+                            <button class="text-[#E31E24] hover:text-white transition-colors">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderIncidentsTable() {
+            const tbody = document.getElementById('incidentsTableBody');
+            if (!tbody) return;
+
+            const incidents = productionData
+                .filter(d => d.downtime > 30)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 10);
+
+            tbody.innerHTML = incidents.map(d => `
+                <tr class="table-row border-b border-[#2a2a35]">
+                    <td class="py-3 px-4">${d.date.split('-').reverse().join('.')}</td>
+                    <td class="py-3 px-4">${d.lineName.replace('Линия ', '')}</td>
+                    <td class="py-3 px-4">${d.shiftName}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded text-xs ${getReasonColor(d.reason)}">${d.reason}</span>
+                    </td>
+                    <td class="py-3 px-4 text-right ${d.downtime > 60 ? 'text-red-400' : ''}">${d.downtime.toFixed(0)} мин</td>
+                    <td class="py-3 px-4 text-right text-gray-400">${((d.downtime / 480) * d.output).toFixed(1)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function getReasonColor(reason) {
+            if (reason === 'Аварийный ремонт') return 'bg-red-500/20 text-red-400';
+            if (reason === 'Плановое ТО') return 'bg-blue-500/20 text-blue-400';
+            if (reason === 'Смена цвета') return 'bg-yellow-500/20 text-yellow-400';
+            return 'bg-gray-500/20 text-gray-400';
+        }
+
+        // Navigation
+        function switchView(viewName) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            document.getElementById(`view-${viewName}`).classList.add('fade-in');
+
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`nav-${viewName}`).classList.add('active');
+
+            if (viewName === 'analytics') {
+                renderIncidentsTable();
+            }
+        }
+
+        // Interactive Features
+        function refreshData() {
+            const icon = document.getElementById('refresh-icon');
+            icon.classList.add('fa-spin');
+            setTimeout(() => {
+                icon.classList.remove('fa-spin');
+                updateCharts();
+            }, 1000);
+        }
+
+        function updateCharts() {
+            // Simulate data update
+            if (charts.efficiency) {
+                charts.efficiency.data.datasets.forEach(dataset => {
+                    dataset.data = dataset.data.map(v => v + (Math.random() - 0.5) * 5);
+                });
+                charts.efficiency.update();
+            }
+        }
+
+        function simulateIncident() {
+            const alertsContainer = document.getElementById('alertsContainer');
+            if (!alertsContainer) return;
+
+            const newAlert = document.createElement('div');
+            newAlert.className = 'alert-item flex items-center gap-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg';
+            newAlert.innerHTML = `
+                <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <i class="fas fa-exclamation text-red-500"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="font-medium text-red-400">Новый инцидент</div>
+                    <div class="text-sm text-gray-400">Линия гранулирования №2 — Неожиданная остановка</div>
+                </div>
+                <div class="text-sm text-gray-500">Только что</div>
+            `;
+            alertsContainer.insertBefore(newAlert, alertsContainer.firstChild);
+
+            // Update realtime card
+            const card = document.getElementById('rt-gran2');
+            if (card) {
+                card.classList.remove('border-green-600');
+                card.classList.add('border-red-600');
+                card.querySelector('.text-3xl').textContent = 'ОСТАНОВЛЕНА';
+                card.querySelector('.text-3xl').classList.remove('text-green-500');
+                card.querySelector('.text-3xl').classList.add('text-red-500');
+            }
+        }
+
+        function updateCalculator() {
+            const lines = parseInt(document.getElementById('calcLines').value);
+            const downtime = parseInt(document.getElementById('calcDowntime').value);
+            const cost = parseInt(document.getElementById('calcCost').value);
+
+            document.getElementById('calcLinesValue').textContent = lines;
+            document.getElementById('calcDowntimeValue').textContent = downtime + 'ч';
+            document.getElementById('calcCostValue').textContent = cost + 'к';
+
+            // Calculate annual savings (15-20% reduction in downtime)
+            const weeklyLoss = lines * downtime * cost * 1000;
+            const annualLoss = weeklyLoss * 52;
+            const savings = annualLoss * 0.175; // 17.5% average
+
+            document.getElementById('calcResult').textContent = (savings / 1000000).toFixed(1) + ' млн ₽';
+        }
+
+        function applyFilters() {
+            refreshData();
+        }
+
+        function sortTable(column) {
+            // Simple sort toggle
+            console.log('Sorting by', column);
+        }
+
+        // Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('ru-RU');
+            document.getElementById('current-date').textContent = now.toLocaleDateString('ru-RU');
+        }
+
+        // Count up animation
+        function animateCounters() {
+            document.querySelectorAll('.count-up').forEach(el => {
+                const target = parseFloat(el.dataset.target);
+                const suffix = el.textContent.includes('%') ? '%' : el.textContent.includes('т') ? ' т' : ' ч';
+                const duration = 2000;
+                const start = 0;
+                const startTime = performance.now();
+
+                function update(currentTime) {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const easeOut = 1 - Math.pow(1 - progress, 3);
+                    const current = start + (target - start) * easeOut;
+
+                    if (suffix === '%') {
+                        el.textContent = current.toFixed(1) + suffix;
+                    } else if (suffix === ' т') {
+                        el.textContent = Math.round(current).toLocaleString() + suffix;
+                    } else {
+                        el.textContent = Math.round(current) + suffix;
+                    }
+
+                    if (progress < 1) {
+                        requestAnimationFrame(update);
+                    }
+                }
+                requestAnimationFrame(update);
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            renderHeatmap();
+            renderStatusTable();
+            renderIncidentsTable();
+            updateClock();
+            setInterval(updateClock, 1000);
+            setTimeout(animateCounters, 500);
+        });
+    </script>
+</body>
+</html>
